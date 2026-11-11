@@ -1,3 +1,6 @@
 package rs.raf.examplatform.model;
 
-public enum Role { STUDENT, TEACHER }
+public enum Role {
+    STUDENT,
+    TEACHER
+}
