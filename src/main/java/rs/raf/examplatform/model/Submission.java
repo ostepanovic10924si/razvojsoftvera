@@ -58,4 +58,9 @@ public class Submission {
     public Double getPoints() {
         return points;
     }
+
+    public void markSubmitted(String repositoryUrl, Instant submittedAt) {
+        this.repositoryUrl = repositoryUrl;
+        this.submittedAt = submittedAt;
+    }
 }
