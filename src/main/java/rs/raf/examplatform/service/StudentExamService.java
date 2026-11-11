@@ -13,6 +13,7 @@ import rs.raf.examplatform.repository.ExamRegistrationRepository;
 import rs.raf.examplatform.repository.ExamSessionRepository;
 import rs.raf.examplatform.repository.SubmissionRepository;
 import rs.raf.examplatform.repository.UserRepository;
+import rs.raf.examplatform.utility.Messages;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -46,21 +47,21 @@ public class StudentExamService {
      */
     public ExamSession checkIn(String username, Long sessionId, Long groupId, String studentIndex) {
         if (sessionId == null || groupId == null || studentIndex == null || studentIndex.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Termin, grupa i broj indeksa su obavezni");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Messages.CHECK_IN_FIELDS_REQUIRED);
         }
         ExamSession session = sessions.findById(sessionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Termin nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, Messages.SESSION_NOT_FOUND));
         if (!session.getExamGroup().getId().equals(groupId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Izabrana grupa ne polaze u ovom terminu");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Messages.GROUP_NOT_IN_SESSION);
         }
         if (!session.getEndsAt().isAfter(Instant.now())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Termin je zavrsen");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.SESSION_ENDED);
         }
         User student = users.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Nalog nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, Messages.ACCOUNT_NOT_FOUND));
         if (student.getStudentIndex() == null
                 || !student.getStudentIndex().trim().equalsIgnoreCase(studentIndex.trim())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Broj indeksa ne odgovara prijavljenom nalogu");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.STUDENT_INDEX_MISMATCH);
         }
         requireRegistered(student, session);
         return session;
@@ -73,20 +74,20 @@ public class StudentExamService {
     @Transactional
     public List<Submission> download(String username, Long sessionId) {
         ExamSession session = sessions.findById(sessionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Termin nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, Messages.SESSION_NOT_FOUND));
         User student = users.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Nalog nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, Messages.ACCOUNT_NOT_FOUND));
         requireRegistered(student, session);
         Instant now = Instant.now();
         if (now.isBefore(session.getStartsAt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Termin jos nije poceo");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.SESSION_NOT_STARTED);
         }
         if (!now.isBefore(session.getEndsAt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Termin je zavrsen");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.SESSION_ENDED);
         }
         List<Assignment> sessionAssignments = assignments.findAllBySessionIdOrderByIdAsc(session.getId());
         if (sessionAssignments.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Za ovaj termin jos nema zadatka");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, Messages.SESSION_HAS_NO_ASSIGNMENTS);
         }
         return sessionAssignments.stream()
                 .map(assignment -> submissions.findByStudentIdAndAssignmentId(student.getId(), assignment.getId())
@@ -102,31 +103,31 @@ public class StudentExamService {
     public Submission submit(String username, Long assignmentId, String repositoryUrl) {
         String url = requireValidUrl(repositoryUrl);
         Assignment assignment = assignments.findById(assignmentId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Zadatak nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, Messages.ASSIGNMENT_NOT_FOUND));
         ExamSession session = assignment.getSession();
         User student = users.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Nalog nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, Messages.ACCOUNT_NOT_FOUND));
         requireRegistered(student, session);
         Instant now = Instant.now();
         if (now.isBefore(session.getStartsAt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Termin jos nije poceo");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.SESSION_NOT_STARTED);
         }
         if (!now.isBefore(session.getEndsAt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Termin je zavrsen, predaja vise nije moguca");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.SUBMISSION_CLOSED);
         }
         Submission submission = submissions.findByStudentIdAndAssignmentId(student.getId(), assignment.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Zadatak prvo mora da se preuzme"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, Messages.ASSIGNMENT_NOT_DOWNLOADED));
         submission.markSubmitted(url, now);
         return submissions.save(submission);
     }
 
     private static String requireValidUrl(String repositoryUrl) {
         if (repositoryUrl == null || repositoryUrl.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "URL repozitorijuma je obavezan");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Messages.REPOSITORY_URL_REQUIRED);
         }
         String url = repositoryUrl.trim();
         if (url.length() > 2000 || !isHttpUrl(url)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "URL repozitorijuma nije ispravan");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Messages.REPOSITORY_URL_INVALID);
         }
         return url;
     }
@@ -143,7 +144,7 @@ public class StudentExamService {
 
     private void requireRegistered(User student, ExamSession session) {
         if (!registrations.existsByStudentIdAndExamSessionId(student.getId(), session.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Niste na spisku prijavljenih za ovaj termin");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, Messages.NOT_REGISTERED_FOR_SESSION);
         }
     }
 }

@@ -12,6 +12,7 @@ import rs.raf.examplatform.repository.AssignmentRepository;
 import rs.raf.examplatform.repository.ExamRegistrationRepository;
 import rs.raf.examplatform.repository.ExamSessionRepository;
 import rs.raf.examplatform.repository.SubmissionRepository;
+import rs.raf.examplatform.utility.Messages;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -53,7 +54,7 @@ public class MonitoringService {
     @Transactional(readOnly = true)
     public SessionMonitoring monitor(Long sessionId) {
         ExamSession session = sessions.findById(sessionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Termin nije pronadjen"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, Messages.SESSION_NOT_FOUND));
         int assignmentCount = assignments.findAllBySessionIdOrderByIdAsc(sessionId).size();
         Map<Long, List<Submission>> worksByStudent = submissions.findAllByAssignmentSessionId(sessionId).stream()
                 .collect(Collectors.groupingBy(work -> work.getStudent().getId()));

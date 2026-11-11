@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import rs.raf.examplatform.model.*;
 import rs.raf.examplatform.repository.*;
+import rs.raf.examplatform.utility.Messages;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -86,8 +87,8 @@ public class TeacherManagementController {
     @PostMapping("/subjects")
     @ResponseStatus(HttpStatus.CREATED)
     public SubjectView createSubject(@RequestBody SubjectRequest request) {
-        required(request.code(), "Sifra predmeta je obavezna");
-        required(request.name(), "Naziv predmeta je obavezan");
+        required(request.code(), Messages.SUBJECT_CODE_REQUIRED);
+        required(request.name(), Messages.SUBJECT_NAME_REQUIRED);
         Subject saved = subjects.save(new Subject(request.code().trim(), request.name().trim()));
         return new SubjectView(saved.getId(), saved.getCode(), saved.getName());
     }
@@ -100,9 +101,9 @@ public class TeacherManagementController {
     @PostMapping("/exam-periods")
     @ResponseStatus(HttpStatus.CREATED)
     public PeriodView createPeriod(@RequestBody PeriodRequest request) {
-        required(request.name(), "Naziv ispitnog roka je obavezan");
+        required(request.name(), Messages.PERIOD_NAME_REQUIRED);
         if (request.startsOn() != null && request.endsOn() != null && request.endsOn().isBefore(request.startsOn()))
-            throw badRequest("Kraj ispitnog roka ne moze biti pre pocetka");
+            throw badRequest(Messages.PERIOD_END_BEFORE_START);
         ExamPeriod saved = periods.save(new ExamPeriod(request.name().trim(), request.startsOn(), request.endsOn()));
         return new PeriodView(saved.getId(), saved.getName(), saved.getStartsOn(), saved.getEndsOn());
     }
@@ -115,7 +116,7 @@ public class TeacherManagementController {
     @PostMapping("/groups")
     @ResponseStatus(HttpStatus.CREATED)
     public GroupView createGroup(@RequestBody GroupRequest request) {
-        required(request.name(), "Naziv grupe je obavezan");
+        required(request.name(), Messages.GROUP_NAME_REQUIRED);
         ExamGroup saved = groups.save(new ExamGroup(request.name().trim(), request.room()));
         return new GroupView(saved.getId(), saved.getName(), saved.getRoom());
     }
@@ -128,14 +129,14 @@ public class TeacherManagementController {
     @PostMapping("/sessions")
     @ResponseStatus(HttpStatus.CREATED)
     public SessionView createSession(@RequestBody SessionRequest request) {
-        required(request.name(), "Naziv termina je obavezan");
+        required(request.name(), Messages.SESSION_NAME_REQUIRED);
         if (request.startsAt() == null || request.endsAt() == null || !request.endsAt().isAfter(request.startsAt()))
-            throw badRequest("Termin mora imati validan pocetak i kraj");
+            throw badRequest(Messages.SESSION_INVALID_TIME_RANGE);
         if (request.subjectId() == null || request.examPeriodId() == null || request.groupId() == null)
-            throw badRequest("Predmet, ispitni rok i grupa su obavezni");
-        Subject subject = subjects.findById(request.subjectId()).orElseThrow(() -> notFound("Predmet nije pronadjen"));
-        ExamPeriod period = periods.findById(request.examPeriodId()).orElseThrow(() -> notFound("Ispitni rok nije pronadjen"));
-        ExamGroup group = groups.findById(request.groupId()).orElseThrow(() -> notFound("Grupa nije pronadjena"));
+            throw badRequest(Messages.SESSION_REFERENCES_REQUIRED);
+        Subject subject = subjects.findById(request.subjectId()).orElseThrow(() -> notFound(Messages.SUBJECT_NOT_FOUND));
+        ExamPeriod period = periods.findById(request.examPeriodId()).orElseThrow(() -> notFound(Messages.PERIOD_NOT_FOUND));
+        ExamGroup group = groups.findById(request.groupId()).orElseThrow(() -> notFound(Messages.GROUP_NOT_FOUND));
         ExamSession saved = sessions.save(new ExamSession(request.name().trim(), request.startsAt(), request.endsAt(), subject, period, group));
         return sessionView(saved);
     }
@@ -148,27 +149,27 @@ public class TeacherManagementController {
     @PostMapping("/sessions/{sessionId}/assignments")
     @ResponseStatus(HttpStatus.CREATED)
     public AssignmentView createAssignment(@PathVariable Long sessionId, @RequestBody AssignmentRequest request) {
-        required(request.title(), "Naziv zadatka je obavezan");
-        required(request.projectUrl(), "URL projekta je obavezan");
-        ExamSession session = sessions.findById(sessionId).orElseThrow(() -> notFound("Termin nije pronadjen"));
+        required(request.title(), Messages.ASSIGNMENT_TITLE_REQUIRED);
+        required(request.projectUrl(), Messages.ASSIGNMENT_PROJECT_URL_REQUIRED);
+        ExamSession session = sessions.findById(sessionId).orElseThrow(() -> notFound(Messages.SESSION_NOT_FOUND));
         Assignment saved = assignments.save(new Assignment(request.title().trim(), request.description(), request.projectUrl().trim(), session));
         return assignmentView(saved);
     }
 
     @GetMapping("/sessions/{sessionId}/assignments")
     public List<AssignmentView> listAssignments(@PathVariable Long sessionId) {
-        if (!sessions.existsById(sessionId)) throw notFound("Termin nije pronadjen");
+        if (!sessions.existsById(sessionId)) throw notFound(Messages.SESSION_NOT_FOUND);
         return assignments.findAllBySessionIdOrderByIdAsc(sessionId).stream().map(this::assignmentView).toList();
     }
 
     @PostMapping("/students")
     @ResponseStatus(HttpStatus.CREATED)
     public StudentView createStudent(@RequestBody StudentRequest request) {
-        required(request.username(), "Korisnicko ime je obavezno");
-        required(request.password(), "Lozinka je obavezna");
-        required(request.studentIndex(), "Broj indeksa je obavezan");
+        required(request.username(), Messages.USERNAME_REQUIRED);
+        required(request.password(), Messages.PASSWORD_REQUIRED);
+        required(request.studentIndex(), Messages.STUDENT_INDEX_REQUIRED);
         if (users.findByUsername(request.username().trim()).isPresent())
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Korisnicko ime vec postoji");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, Messages.USERNAME_TAKEN);
         User student = users.save(new User(request.username().trim(), passwordEncoder.encode(request.password()), Role.STUDENT,
                 request.fullName(), request.studentIndex().trim()));
         return studentView(student);
@@ -183,19 +184,19 @@ public class TeacherManagementController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public List<RegistrationView> registerStudents(@PathVariable Long sessionId, @RequestBody RegistrationRequest request) {
-        ExamSession session = sessions.findById(sessionId).orElseThrow(() -> notFound("Termin nije pronadjen"));
+        ExamSession session = sessions.findById(sessionId).orElseThrow(() -> notFound(Messages.SESSION_NOT_FOUND));
         if (request.studentUsernames() == null || request.studentUsernames().isEmpty())
-            throw badRequest("Navedite bar jednog studenta");
+            throw badRequest(Messages.REGISTRATION_LIST_EMPTY);
         if (request.studentUsernames().stream().anyMatch(u -> u == null || u.isBlank()) ||
                 request.studentUsernames().stream().map(String::trim).distinct().count() != request.studentUsernames().size())
-            throw badRequest("Spisak sadrzi prazno ili ponovljeno korisnicko ime");
+            throw badRequest(Messages.REGISTRATION_LIST_INVALID);
         List<User> selected = request.studentUsernames().stream().map(String::trim).map(username -> users.findByUsername(username)
-                .orElseThrow(() -> notFound("Student nije pronadjen: " + username))).toList();
+                .orElseThrow(() -> notFound(Messages.STUDENT_NOT_FOUND.formatted(username)))).toList();
         if (selected.stream().anyMatch(user -> user.getRole() != Role.STUDENT))
-            throw badRequest("Spisak moze sadrzati samo studentske naloge");
+            throw badRequest(Messages.REGISTRATION_LIST_NOT_STUDENTS);
         for (User student : selected) {
             if (registrations.existsByStudentIdAndExamSessionId(student.getId(), sessionId))
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Student je vec prijavljen: " + student.getUsername());
+                throw new ResponseStatusException(HttpStatus.CONFLICT, Messages.STUDENT_ALREADY_REGISTERED.formatted(student.getUsername()));
         }
         return selected.stream().map(student -> registrations.save(new ExamRegistration(student, session)))
                 .map(this::registrationView).toList();
@@ -203,7 +204,7 @@ public class TeacherManagementController {
 
     @GetMapping("/sessions/{sessionId}/registrations")
     public List<RegistrationView> listRegistrations(@PathVariable Long sessionId) {
-        if (!sessions.existsById(sessionId)) throw notFound("Termin nije pronadjen");
+        if (!sessions.existsById(sessionId)) throw notFound(Messages.SESSION_NOT_FOUND);
         return registrations.findAllByExamSessionIdOrderByIdAsc(sessionId).stream().map(this::registrationView).toList();
     }
 

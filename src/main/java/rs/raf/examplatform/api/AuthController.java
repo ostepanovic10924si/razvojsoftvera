@@ -7,6 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 import rs.raf.examplatform.model.User;
 import rs.raf.examplatform.repository.UserRepository;
 import rs.raf.examplatform.security.JwtService;
+import rs.raf.examplatform.utility.Messages;
 
 @RestController @RequestMapping("/api/auth") public class AuthController {
     private final UserRepository users;
@@ -29,7 +30,7 @@ import rs.raf.examplatform.security.JwtService;
     public LoginResponse login(@RequestBody LoginRequest request) {
         User user = users.findByUsername(request.username())
                 .filter(u -> encoder.matches(request.password(), u.getPasswordHash()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Neispravno korisnicko ime ili lozinka"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, Messages.INVALID_CREDENTIALS));
         return new LoginResponse(jwt.create(user), "Bearer", user.getUsername(), user.getRole().name());
     }
 }
