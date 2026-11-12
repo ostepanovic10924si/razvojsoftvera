@@ -64,6 +64,14 @@ public final class Messages {
     public static final String ASSIGNMENT_NOT_DOWNLOADED = "Zadatak prvo mora da se preuzme";
     public static final String SUBMISSION_CLOSED = "Termin je zavrsen, predaja vise nije moguca";
 
+    // Review and grading
+    public static final String SUBMISSION_NOT_FOUND = "Resenje nije pronadjeno";
+    public static final String SUBMISSION_NOT_SUBMITTED = "Resenje jos nije predato";
+    public static final String COMMENT_FIELDS_REQUIRED = "Tekst komentara, fajl i pocetna linija su obavezni";
+    public static final String COMMENT_INVALID_LINES = "Linije komentara nisu ispravne";
+    public static final String COMMENT_TOO_LONG = "Tekst komentara ili putanja fajla su predugacki";
+    public static final String POINTS_INVALID = "Poeni moraju biti broj veci ili jednak nuli";
+
     private Messages() {
     }
 }

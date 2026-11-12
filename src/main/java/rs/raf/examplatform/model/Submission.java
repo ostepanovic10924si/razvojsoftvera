@@ -63,4 +63,8 @@ public class Submission {
         this.repositoryUrl = repositoryUrl;
         this.submittedAt = submittedAt;
     }
+
+    public void assignPoints(Double points) {
+        this.points = points;
+    }
 }

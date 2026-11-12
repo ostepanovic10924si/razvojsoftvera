@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 import rs.raf.examplatform.model.Assignment;
 import rs.raf.examplatform.model.ExamSession;
 import rs.raf.examplatform.model.Submission;
+import rs.raf.examplatform.service.ReviewService;
+import rs.raf.examplatform.service.ReviewService.StudentResult;
 import rs.raf.examplatform.service.StudentExamService;
 
 import java.time.Instant;
@@ -19,9 +21,11 @@ import java.util.List;
 @RequestMapping("/api/student")
 public class StudentExamController {
     private final StudentExamService studentExams;
+    private final ReviewService reviews;
 
-    public StudentExamController(StudentExamService studentExams) {
+    public StudentExamController(StudentExamService studentExams, ReviewService reviews) {
         this.studentExams = studentExams;
+        this.reviews = reviews;
     }
 
     public record SessionOption(Long id, String name, String subjectName, Long groupId,
@@ -46,6 +50,11 @@ public class StudentExamController {
         return openSessions.stream()
                 .map(this::toSessionOption)
                 .toList();
+    }
+
+    @GetMapping("/submissions")
+    public List<StudentResult> results(Authentication auth) {
+        return reviews.studentResults(auth.getName());
     }
 
     @PostMapping("/check-in")
