@@ -28,6 +28,7 @@ public class StudentExamController {
         this.reviews = reviews;
     }
 
+    //region Records
     public record SessionOption(Long id, String name, String subjectName, Long groupId,
                                 String groupName, String room, Instant startsAt, Instant endsAt) {}
 
@@ -43,6 +44,7 @@ public class StudentExamController {
 
     public record SubmissionConfirmation(Long submissionId, Long assignmentId, String repositoryUrl,
                                          Instant downloadedAt, Instant submittedAt) {}
+    //endregion
 
     @GetMapping("/sessions")
     public List<SessionOption> sessions() {
